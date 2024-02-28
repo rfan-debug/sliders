@@ -4,7 +4,7 @@
 
 import os
 import math
-from typing import Optional, List, Type, Set, Literal
+from typing import Optional, List, Literal
 
 import torch
 import torch.nn as nn

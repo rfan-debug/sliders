@@ -1,12 +1,10 @@
 from typing import Literal, Optional, Union, List
-
-import yaml
-from pathlib import Path
-
-
-from pydantic import BaseModel, root_validator
 import torch
 import copy
+import yaml
+
+from pydantic.v1 import BaseModel, root_validator
+
 
 ACTION_TYPES = Literal[
     "erase",

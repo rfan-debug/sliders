@@ -2,7 +2,6 @@
 # - https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L566
 # - https://huggingface.co/spaces/baulab/Erasing-Concepts-In-Diffusion/blob/main/train.py
 
-from typing import List, Optional
 import argparse
 import ast
 from pathlib import Path
@@ -12,8 +11,6 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from PIL import Image
-
-
 
 import train_util
 import random
@@ -307,12 +304,7 @@ def train(
                 guidance_scale=1,
             ).to(device, dtype=torch.float32)
             
-            
-            
-            if config.logging.verbose:
-                print("positive_latents:", positive_latents[0, 0, :5, :5])
-                print("neutral_latents:", neutral_latents[0, 0, :5, :5])
-                print("unconditional_latents:", unconditional_latents[0, 0, :5, :5])
+
                 
         network.set_lora_slider(scale=scale_to_look)
         with network:
