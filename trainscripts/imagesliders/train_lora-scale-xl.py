@@ -31,19 +31,20 @@ import wandb
 NUM_IMAGES_PER_PROMPT = 1
 from lora import LoRANetwork, DEFAULT_TARGET_REPLACE, UNET_TARGET_REPLACE_MODULE_CONV
 
+
 def flush():
     torch.cuda.empty_cache()
     gc.collect()
 
 
 def train(
-    config: RootConfig,
-    prompts: list[PromptSettings],
-    device,
-    folder_main: str,
-    folders,
-    scales,
-    
+        config: RootConfig,
+        prompts: list[PromptSettings],
+        device,
+        folder_main: str,
+        folders,
+        scales,
+
 ):
     scales = np.array(scales)
     folders = np.array(folders)
@@ -89,11 +90,11 @@ def train(
         unet.enable_xformers_memory_efficient_attention()
     unet.requires_grad_(False)
     unet.eval()
-    
+
     vae.to(device)
     vae.requires_grad_(False)
     vae.eval()
-    
+
     network = LoRANetwork(
         unet,
         rank=config.network.rank,
@@ -103,14 +104,14 @@ def train(
     ).to(device, dtype=weight_dtype)
 
     optimizer_module = train_util.get_optimizer(config.train.optimizer)
-    #optimizer_args
+    # optimizer_args
     optimizer_kwargs = {}
     if config.train.optimizer_args is not None and len(config.train.optimizer_args) > 0:
         for arg in config.train.optimizer_args.split(" "):
             key, value = arg.split("=")
             value = ast.literal_eval(value)
             optimizer_kwargs[key] = value
-            
+
     optimizer = optimizer_module(network.prepare_optimizer_params(), lr=config.train.lr, **optimizer_kwargs)
     lr_scheduler = train_util.get_lr_scheduler(
         config.train.lr_scheduler,
@@ -142,11 +143,11 @@ def train(
             ]:
                 if cache[prompt] == None:
                     tex_embs, pool_embs = train_util.encode_prompts_xl(
-                            tokenizers,
-                            text_encoders,
-                            [prompt],
-                            num_images_per_prompt=NUM_IMAGES_PER_PROMPT,
-                        )
+                        tokenizers,
+                        text_encoders,
+                        [prompt],
+                        num_images_per_prompt=NUM_IMAGES_PER_PROMPT,
+                    )
                     cache[prompt] = PromptEmbedsXL(
                         tex_embs,
                         pool_embs
@@ -204,21 +205,19 @@ def train(
                 print("batch_size:", prompt_pair.batch_size)
                 print("dynamic_crops:", prompt_pair.dynamic_crops)
 
-            
-            
             scale_to_look = abs(random.choice(list(scales_unique)))
-            folder1 = folders[scales==-scale_to_look][0]
-            folder2 = folders[scales==scale_to_look][0]
-            
+            folder1 = folders[scales == -scale_to_look][0]
+            folder2 = folders[scales == scale_to_look][0]
+
             ims = os.listdir(f'{folder_main}/{folder1}/')
             ims = [im_ for im_ in ims if '.png' in im_ or '.jpg' in im_ or '.jpeg' in im_ or '.webp' in im_]
-            random_sampler = random.randint(0, len(ims)-1)
+            random_sampler = random.randint(0, len(ims) - 1)
 
-            img1 = Image.open(f'{folder_main}/{folder1}/{ims[random_sampler]}').resize((512,512))
-            img2 = Image.open(f'{folder_main}/{folder2}/{ims[random_sampler]}').resize((512,512))
-            
-            seed = random.randint(0,2*15)
-            
+            img1 = Image.open(f'{folder_main}/{folder1}/{ims[random_sampler]}').resize((512, 512))
+            img2 = Image.open(f'{folder_main}/{folder2}/{ims[random_sampler]}').resize((512, 512))
+
+            seed = random.randint(0, 2 * 15)
+
             generator = torch.manual_seed(seed)
             denoised_latents_low, low_noise = train_util.get_noisy_image(
                 img1,
@@ -230,7 +229,7 @@ def train(
                 total_timesteps=timesteps_to)
             denoised_latents_low = denoised_latents_low.to(device, dtype=weight_dtype)
             low_noise = low_noise.to(device, dtype=weight_dtype)
-            
+
             generator = torch.manual_seed(seed)
             denoised_latents_high, high_noise = train_util.get_noisy_image(
                 img2,
@@ -250,7 +249,6 @@ def train(
                 dynamic_crops=prompt_pair.dynamic_crops,
                 dtype=weight_dtype,
             ).to(device, dtype=weight_dtype)
-
 
             current_timestep = noise_scheduler.timesteps[
                 int(timesteps_to * 1000 / config.train.max_denoising_steps)
@@ -282,7 +280,7 @@ def train(
                 print(f'Error Occured!: {np.array(img1).shape} {np.array(img2).shape}')
                 continue
             # with network: の外では空のLoRAのみが有効になる
-            
+
             low_latents = train_util.predict_noise_xl(
                 unet,
                 noise_scheduler,
@@ -303,9 +301,7 @@ def train(
                 ),
                 guidance_scale=1,
             ).to(device, dtype=torch.float32)
-            
 
-                
         network.set_lora_slider(scale=scale_to_look)
         with network:
             target_latents_high = train_util.predict_noise_xl(
@@ -331,11 +327,11 @@ def train(
 
         high_latents.requires_grad = False
         low_latents.requires_grad = False
-        
+
         loss_high = criteria(target_latents_high, high_noise.to(torch.float32))
-        pbar.set_description(f"Loss*1k: {loss_high.item()*1000:.4f}")
+        pbar.set_description(f"Loss*1k: {loss_high.item() * 1000:.4f}")
         loss_high.backward()
-        
+
         # opposite
         network.set_lora_slider(scale=-scale_to_look)
         with network:
@@ -360,15 +356,13 @@ def train(
                 guidance_scale=1,
             ).to(device, dtype=torch.float32)
 
-
         high_latents.requires_grad = False
         low_latents.requires_grad = False
-        
+
         loss_low = criteria(target_latents_low, low_noise.to(torch.float32))
-        pbar.set_description(f"Loss*1k: {loss_low.item()*1000:.4f}")
+        pbar.set_description(f"Loss*1k: {loss_low.item() * 1000:.4f}")
         loss_low.backward()
-        
-        
+
         optimizer.step()
         lr_scheduler.step()
 
@@ -379,11 +373,11 @@ def train(
             target_latents_high,
         )
         flush()
-        
+
         if (
-            i % config.save.per_steps == 0
-            and i != 0
-            and i != config.train.iterations - 1
+                i % config.save.per_steps == 0
+                and i != 0
+                and i != config.train.iterations - 1
         ):
             print("Saving...")
             save_path.mkdir(parents=True, exist_ok=True)
@@ -422,40 +416,51 @@ def main(args):
     if args.attributes is not None:
         attributes = args.attributes.split(',')
         attributes = [a.strip() for a in attributes]
-    
+
     config.network.alpha = args.alpha
     config.network.rank = args.rank
     config.save.name += f'_alpha{args.alpha}'
-    config.save.name += f'_rank{config.network.rank }'
+    config.save.name += f'_rank{config.network.rank}'
     config.save.name += f'_{config.network.training_method}'
     config.save.path += f'/{config.save.name}'
-    
+
     prompts = prompt_util.load_prompts_from_yaml(config.prompts_file, attributes)
-    
+
     device = torch.device(f"cuda:{args.device}")
-    
+
     folders = args.folders.split(',')
     folders = [f.strip() for f in folders]
     scales = args.scales.split(',')
     scales = [f.strip() for f in scales]
     scales = [int(s) for s in scales]
-    
+
     print(folders, scales)
     if len(scales) != len(folders):
         raise Exception('the number of folders need to match the number of scales')
-    
+
     if args.stylecheck is not None:
         check = args.stylecheck.split('-')
-        
         for i in range(int(check[0]), int(check[1])):
-            folder_main = args.folder_main+ f'{i}'
-            config.save.name = f'{os.path.basename(folder_main)}'
-            config.save.name += f'_alpha{args.alpha}'
-            config.save.name += f'_rank{config.network.rank }'
+            folder_main = args.folder_main + f'{i}'
+            config.save.name = f'{os.path.basename(folder_main)}_alpha{args.alpha}_rank{config.network.rank}'
             config.save.path = f'models/{config.save.name}'
-            train(config=config, prompts=prompts, device=device, folder_main = folder_main, folders = folders, scales = scales)
+            train(
+                config=config,
+                prompts=prompts,
+                device=device,
+                folder_main=folder_main,
+                folders=folders,
+                scales=scales
+            )
     else:
-        train(config=config, prompts=prompts, device=device, folder_main = args.folder_main, folders = folders, scales = scales)
+        train(
+            config=config,
+            prompts=prompts,
+            device=device,
+            folder_main=args.folder_main,
+            folders=folders,
+            scales=scales
+        )
 
 
 if __name__ == "__main__":
@@ -510,31 +515,30 @@ if __name__ == "__main__":
         required=True,
         help="The folder to check",
     )
-    
+
     parser.add_argument(
         "--stylecheck",
         type=str,
         required=False,
-        default = None,
+        default=None,
         help="The folder to check",
     )
-    
+
     parser.add_argument(
         "--folders",
         type=str,
         required=False,
-        default = 'verylow, low, high, veryhigh',
+        default='verylow, low, high, veryhigh',
         help="folders with different attribute-scaled images",
     )
     parser.add_argument(
         "--scales",
         type=str,
         required=False,
-        default = '-2, -1, 1, 2',
+        default='-2, -1, 1, 2',
         help="scales for different attribute-scaled images",
     )
-    
-    
+
     args = parser.parse_args()
 
     main(args)
