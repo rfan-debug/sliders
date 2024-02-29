@@ -11,9 +11,8 @@ import torch.nn as nn
 from diffusers import UNet2DConditionModel
 from safetensors.torch import save_file
 
-
 UNET_TARGET_REPLACE_MODULE_TRANSFORMER = [
-#     "Transformer2DModel",  # どうやらこっちの方らしい？ # attn1, 2
+    #     "Transformer2DModel",  # どうやらこっちの方らしい？ # attn1, 2
     "Attention"
 ]
 UNET_TARGET_REPLACE_MODULE_CONV = [
@@ -22,7 +21,7 @@ UNET_TARGET_REPLACE_MODULE_CONV = [
     "Upsample2D",
     "DownBlock2D",
     "UpBlock2D",
-    
+
 ]  # locon, 3clier
 
 LORA_PREFIX_UNET = "lora_unet"
@@ -34,8 +33,8 @@ TRAINING_METHODS = Literal[
     "innoxattn",  # train all layers except self attention layers
     "selfattn",  # ESD-u, train only self attention layers
     "xattn",  # ESD-x, train only x attention layers
-    "full",  #  train all layers
-    "xattn-strict", # q and k values
+    "full",  # train all layers
+    "xattn-strict",  # q and k values
     "noxattn-hspace",
     "noxattn-hspace-last",
     # "xlayer",
@@ -53,12 +52,12 @@ class LoRAModule(nn.Module):
     """
 
     def __init__(
-        self,
-        lora_name,
-        org_module: nn.Module,
-        multiplier=1.0,
-        lora_dim=4,
-        alpha=1,
+            self,
+            lora_name: str,
+            org_module: nn.Module,
+            multiplier: float = 1.0,
+            lora_dim: int = 4,
+            alpha: float = 1.0,
     ):
         """if alpha == 0 or None, alpha is rank (no scaling)."""
         super().__init__()
@@ -71,7 +70,7 @@ class LoRAModule(nn.Module):
             self.lora_down = nn.Linear(in_dim, lora_dim, bias=False)
             self.lora_up = nn.Linear(lora_dim, out_dim, bias=False)
 
-        elif "Conv" in org_module.__class__.__name__:  # 一応
+        elif "Conv" in org_module.__class__.__name__:  # just in case
             in_dim = org_module.in_channels
             out_dim = org_module.out_channels
 
@@ -85,7 +84,9 @@ class LoRAModule(nn.Module):
             self.lora_down = nn.Conv2d(
                 in_dim, self.lora_dim, kernel_size, stride, padding, bias=False
             )
-            self.lora_up = nn.Conv2d(self.lora_dim, out_dim, (1, 1), (1, 1), bias=False)
+            self.lora_up = nn.Conv2d(
+                self.lora_dim, out_dim, (1, 1), (1, 1), bias=False
+            )
 
         if type(alpha) == torch.Tensor:
             alpha = alpha.detach().numpy()
@@ -107,28 +108,25 @@ class LoRAModule(nn.Module):
 
     def forward(self, x):
         return (
-            self.org_forward(x)
-            + self.lora_up(self.lora_down(x)) * self.multiplier * self.scale
+                self.org_forward(x)
+                + self.lora_up(self.lora_down(x)) * self.multiplier * self.scale
         )
 
 
 class LoRANetwork(nn.Module):
     def __init__(
-        self,
-        unet: UNet2DConditionModel,
-        rank: int = 4,
-        multiplier: float = 1.0,
-        alpha: float = 1.0,
-        train_method: TRAINING_METHODS = "full",
+            self,
+            unet: UNet2DConditionModel,
+            rank: int = 4,
+            multiplier: float = 1.0,
+            alpha: float = 1.0,
+            train_method: TRAINING_METHODS = "full",
     ) -> None:
         super().__init__()
         self.lora_scale = 1
         self.multiplier = multiplier
         self.lora_dim = rank
         self.alpha = alpha
-
-        # LoRAのみ
-        self.module = LoRAModule
 
         # unetのloraを作る
         self.unet_loras = self.create_modules(
@@ -141,15 +139,15 @@ class LoRANetwork(nn.Module):
         )
         print(f"create LoRA for U-Net: {len(self.unet_loras)} modules.")
 
-        # assertion 名前の被りがないか確認しているようだ
+        # assertion checking to make sure there is no duplication of names
         lora_names = set()
         for lora in self.unet_loras:
             assert (
-                lora.lora_name not in lora_names
+                    lora.lora_name not in lora_names
             ), f"duplicated lora name: {lora.lora_name}. {lora_names}"
             lora_names.add(lora.lora_name)
 
-        # 適用する
+        # apply
         for lora in self.unet_loras:
             lora.apply_to()
             self.add_module(
@@ -162,13 +160,13 @@ class LoRANetwork(nn.Module):
         torch.cuda.empty_cache()
 
     def create_modules(
-        self,
-        prefix: str,
-        root_module: nn.Module,
-        target_replace_modules: List[str],
-        rank: int,
-        multiplier: float,
-        train_method: TRAINING_METHODS,
+            self,
+            prefix: str,
+            root_module: nn.Module,
+            target_replace_modules: List[str],
+            rank: int,
+            multiplier: float,
+            train_method: TRAINING_METHODS,
     ) -> list:
         loras = []
         names = []
@@ -193,7 +191,8 @@ class LoRANetwork(nn.Module):
                 )
             if module.__class__.__name__ in target_replace_modules:
                 for child_name, child_module in module.named_modules():
-                    if child_module.__class__.__name__ in ["Linear", "Conv2d", "LoRACompatibleLinear", "LoRACompatibleConv"]:
+                    if child_module.__class__.__name__ in ["Linear", "Conv2d", "LoRACompatibleLinear",
+                                                           "LoRACompatibleConv"]:
                         if train_method == 'xattn-strict':
                             if 'out' in child_name:
                                 continue
@@ -205,22 +204,18 @@ class LoRANetwork(nn.Module):
                                 continue
                         lora_name = prefix + "." + name + "." + child_name
                         lora_name = lora_name.replace(".", "_")
-#                         print(f"{lora_name}")
-                        lora = self.module(
+                        lora = LoRAModule(
                             lora_name, child_module, multiplier, rank, self.alpha
                         )
-#                         print(name, child_name)
-#                         print(child_module.weight.shape)
                         if lora_name not in names:
                             loras.append(lora)
                             names.append(lora_name)
-#         print(f'@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n {names}')
         return loras
 
     def prepare_optimizer_params(self):
         all_params = []
 
-        if self.unet_loras:  # 実質これしかない
+        if self.unet_loras:  # Practically, there is only this.
             params = []
             [params.extend(lora.parameters()) for lora in self.unet_loras]
             param_data = {"params": params}
@@ -237,15 +232,16 @@ class LoRANetwork(nn.Module):
                 v = v.detach().clone().to("cpu").to(dtype)
                 state_dict[key] = v
 
-#         for key in list(state_dict.keys()):
-#             if not key.startswith("lora"):
-#                 # lora以外除外
-#                 del state_dict[key]
+        #         for key in list(state_dict.keys()):
+        #             if not key.startswith("lora"):
+        #                 # lora以外除外
+        #                 del state_dict[key]
 
         if os.path.splitext(file)[1] == ".safetensors":
             save_file(state_dict, file, metadata)
         else:
             torch.save(state_dict, file)
+
     def set_lora_slider(self, scale):
         self.lora_scale = scale
 

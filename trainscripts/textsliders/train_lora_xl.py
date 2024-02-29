@@ -2,7 +2,6 @@
 # - https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L566
 # - https://huggingface.co/spaces/baulab/Erasing-Concepts-In-Diffusion/blob/main/train.py
 
-from typing import List, Optional
 import argparse
 import ast
 from pathlib import Path
@@ -171,7 +170,7 @@ def train(
                 torch.randint(0, len(prompt_pairs), (1,)).item()
             ]
 
-            # 1 ~ 49 からランダム
+            # random from 1 to 49
             timesteps_to = torch.randint(
                 1, config.train.max_denoising_steps, (1,)
             ).item()

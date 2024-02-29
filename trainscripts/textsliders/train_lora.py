@@ -288,7 +288,7 @@ def train(
             unconditional_latents=unconditional_latents,
         )
              
-        # 1000倍しないとずっと0.000...になってしまって見た目的に面白くない
+        # If it's not multiplied by 1000, it will always become 0.000... and visually it's not interesting.
         pbar.set_description(f"Loss*1k: {loss.item()*1000:.4f}")
         if config.logging.use_wandb:
             wandb.log(
