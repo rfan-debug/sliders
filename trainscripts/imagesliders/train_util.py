@@ -77,7 +77,7 @@ def text_encode(text_encoder: CLIPTextModel, tokens):
 
 def encode_prompts(
     tokenizer: CLIPTokenizer,
-    text_encoder: CLIPTokenizer,
+    text_encoder: CLIPTextModel,
     prompts: list[str],
 ):
 

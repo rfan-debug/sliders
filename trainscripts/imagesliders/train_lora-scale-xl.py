@@ -419,9 +419,7 @@ def main(args):
 
     config.network.alpha = args.alpha
     config.network.rank = args.rank
-    config.save.name += f'_alpha{args.alpha}'
-    config.save.name += f'_rank{config.network.rank}'
-    config.save.name += f'_{config.network.training_method}'
+    config.save.name += f'_alpha{args.alpha}_rank{config.network.rank}_{config.network.training_method}'
     config.save.path += f'/{config.save.name}'
 
     prompts = prompt_util.load_prompts_from_yaml(config.prompts_file, attributes)

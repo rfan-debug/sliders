@@ -1,0 +1,18 @@
+ - target: "weather" # what word for erasing the positive concept from
+   positive: "bright pleasant weather" # concept to erase
+   unconditional: "weather" # word to take the difference from the positive concept
+   neutral: "weather" # starting point for conditioning the target
+   action: "enhance" # erase or enhance
+   guidance_scale: 4
+   resolution: 512
+   dynamic_resolution: false
+   batch_size: 1
+ - target: "weather" # what word for erasing the positive concept from
+   positive: "dark gloomy weather" # concept to erase
+   unconditional: "weather" # word to take the difference from the positive concept
+   neutral: "weather" # starting point for conditioning the target
+   action: "erase" # erase or enhance
+   guidance_scale: 4
+   resolution: 512
+   dynamic_resolution: false
+   batch_size: 1
