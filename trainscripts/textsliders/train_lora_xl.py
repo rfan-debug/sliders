@@ -170,7 +170,8 @@ def train(
                 torch.randint(0, len(prompt_pairs), (1,)).item()
             ]
 
-            # random from 1 to 49
+            # random from 1 to 49 for the end timesteps so that we could sample effectively on
+            # different denoising levels effectively.
             timesteps_to = torch.randint(
                 1, config.train.max_denoising_steps, (1,)
             ).item()
@@ -202,11 +203,11 @@ def train(
             ).to(device, dtype=weight_dtype)
 
             with network:
-                # ちょっとデノイズされれたものが返る
+                # Return the slightly denoised tensor
                 denoised_latents = train_util.diffusion_xl(
                     unet,
                     noise_scheduler,
-                    latents,  # 単純なノイズのlatentsを渡す
+                    latents,  # pass the latents of simple noise
                     text_embeddings=train_util.concat_embeddings(
                         prompt_pair.unconditional.text_embeds,
                         prompt_pair.target.text_embeds,
@@ -231,7 +232,7 @@ def train(
                 int(timesteps_to * 1000 / config.train.max_denoising_steps)
             ]
 
-            # with network: の外では空のLoRAのみが有効になる
+            # with network: "Outside of it, only the empty LoRA becomes active"
             positive_latents = train_util.predict_noise_xl(
                 unet,
                 noise_scheduler,
@@ -334,7 +335,7 @@ def train(
             unconditional_latents=unconditional_latents,
         )
 
-        # 1000倍しないとずっと0.000...になってしまって見た目的に面白くない
+        # Only readable after x1000
         pbar.set_description(f"Loss*1k: {loss.item()*1000:.4f}")
         if config.logging.use_wandb:
             wandb.log(

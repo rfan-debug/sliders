@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 import torch
 
@@ -9,7 +9,7 @@ from model_util import SDXL_TEXT_ENCODER_TYPE
 
 from tqdm import tqdm
 
-UNET_IN_CHANNELS = 4  # Stable Diffusion の in_channels は 4 で固定。XLも同じ。
+UNET_IN_CHANNELS = 4  # The in_channels of Stable Diffusion are fixed at 4. The same goes for XL.
 VAE_SCALE_FACTOR = 8  # 2 ** (len(vae.config.block_out_channels) - 1) = 8
 
 UNET_ATTENTION_TIME_EMBED_DIM = 256  # XL
@@ -24,7 +24,7 @@ def get_random_noise(
         (
             batch_size,
             UNET_IN_CHANNELS,
-            height // VAE_SCALE_FACTOR,  # 縦と横これであってるのかわからないけど、どっちにしろ大きな問題は発生しないのでこれでいいや
+            height // VAE_SCALE_FACTOR,  # I'm not sure if this is correct for vertical and horizontal, but either way, no major problem will occur, so this is fine
             width // VAE_SCALE_FACTOR,
         ),
         generator=generator,
@@ -58,7 +58,7 @@ def get_initial_latents(
 
 
 def text_tokenize(
-    tokenizer: CLIPTokenizer,  # 普通ならひとつ、XLならふたつ！
+    tokenizer: CLIPTokenizer,  # Normally one, if XL then two text encoders.
     prompts: list[str],
 ):
     return tokenizer(
@@ -145,9 +145,9 @@ def concat_embeddings(
 def predict_noise(
     unet: UNet2DConditionModel,
     scheduler: SchedulerMixin,
-    timestep: int,  # 現在のタイムステップ
+    timestep: int,  # The current timestep
     latents: torch.FloatTensor,
-    text_embeddings: torch.FloatTensor,  # uncond な text embed と cond な text embed を結合したもの
+    text_embeddings: torch.FloatTensor,  # something that combines the unconditioned text embed and the conditioned text embed
     guidance_scale=7.5,
 ) -> torch.FloatTensor:
     # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
@@ -176,7 +176,7 @@ def predict_noise(
 def diffusion(
     unet: UNet2DConditionModel,
     scheduler: SchedulerMixin,
-    latents: torch.FloatTensor,  # ただのノイズだけのlatents
+    latents: torch.FloatTensor,  # latents that are just plain noise
     text_embeddings: torch.FloatTensor,
     total_timesteps: int = 1000,
     start_timesteps=0,
@@ -220,10 +220,10 @@ def rescale_noise_cfg(
 def predict_noise_xl(
     unet: UNet2DConditionModel,
     scheduler: SchedulerMixin,
-    timestep: int,  # 現在のタイムステップ
+    timestep: int,  # Current timestep
     latents: torch.FloatTensor,
-    text_embeddings: torch.FloatTensor,  # uncond な text embed と cond な text embed を結合したもの
-    add_text_embeddings: torch.FloatTensor,  # pooled なやつ
+    text_embeddings: torch.FloatTensor,
+    add_text_embeddings: torch.FloatTensor,  # Something that combines unconditioned text embed and conditioned text embed, pooled.
     add_time_ids: torch.FloatTensor,
     guidance_scale=7.5,
     guidance_rescale=0.7,
@@ -264,9 +264,9 @@ def predict_noise_xl(
 def diffusion_xl(
     unet: UNet2DConditionModel,
     scheduler: SchedulerMixin,
-    latents: torch.FloatTensor,  # ただのノイズだけのlatents
+    latents: torch.FloatTensor,  # Only noisy latents
     text_embeddings: tuple[torch.FloatTensor, torch.FloatTensor],
-    add_text_embeddings: torch.FloatTensor,  # pooled なやつ
+    add_text_embeddings: torch.FloatTensor,  # pooled embedding
     add_time_ids: torch.FloatTensor,
     guidance_scale: float = 1.0,
     total_timesteps: int = 1000,
@@ -346,7 +346,7 @@ def get_optimizer(name: str):
         else:
             raise ValueError("DAdapt optimizer must be dadaptadam or dadaptlion")
 
-    elif name.endswith("8bit"):  # 検証してない
+    elif name.endswith("8bit"):  # Check if using 8bit optimizer
         import bitsandbytes as bnb
 
         if name == "adam8bit":
