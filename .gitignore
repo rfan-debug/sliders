@@ -164,3 +164,6 @@ cython_debug/
 models/
 author_trained_models/
 wandb/
+
+## Saved the training data
+data/
