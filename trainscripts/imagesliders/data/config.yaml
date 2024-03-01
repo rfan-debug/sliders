@@ -22,7 +22,7 @@ save:
   per_steps: 500
   precision: "bfloat16"
 logging:
-  use_wandb: false
+  use_wandb: true
   verbose: false
 other:
   use_xformers: true
