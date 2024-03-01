@@ -3,8 +3,7 @@
 # - https://github.com/kohya-ss/sd-scripts/blob/main/networks/lora.py
 
 import os
-import math
-from typing import Optional, List, Type, Set, Literal
+from typing import Optional, List, Literal
 
 import torch
 import torch.nn as nn
@@ -12,7 +11,7 @@ from diffusers import UNet2DConditionModel
 from safetensors.torch import save_file
 
 UNET_TARGET_REPLACE_MODULE_TRANSFORMER = [
-    #     "Transformer2DModel",  # どうやらこっちの方らしい？ # attn1, 2
+    #     "Transformer2DModel",  # attn1, 2
     "Attention"
 ]
 UNET_TARGET_REPLACE_MODULE_CONV = [
@@ -92,7 +91,7 @@ class LoRAModule(nn.Module):
             alpha = alpha.detach().numpy()
         alpha = lora_dim if alpha is None or alpha == 0 else alpha
         self.scale = alpha / self.lora_dim
-        self.register_buffer("alpha", torch.tensor(alpha))  # 定数として扱える
+        self.register_buffer("alpha", torch.tensor(alpha))  #
 
         # same as microsoft's
         nn.init.kaiming_uniform_(self.lora_down.weight, a=1)
@@ -128,7 +127,7 @@ class LoRANetwork(nn.Module):
         self.lora_dim = rank
         self.alpha = alpha
 
-        # unetのloraを作る
+        # unet lora
         self.unet_loras = self.create_modules(
             LORA_PREFIX_UNET,
             unet,
@@ -174,16 +173,16 @@ class LoRANetwork(nn.Module):
             if train_method == "noxattn" or train_method == "noxattn-hspace" or train_method == "noxattn-hspace-last":  # Cross Attention と Time Embed 以外学習
                 if "attn2" in name or "time_embed" in name:
                     continue
-            elif train_method == "innoxattn":  # Cross Attention 以外学習
+            elif train_method == "innoxattn":  # Cross Attention learning
                 if "attn2" in name:
                     continue
-            elif train_method == "selfattn":  # Self Attention のみ学習
+            elif train_method == "selfattn":  # Self Attention learning
                 if "attn1" not in name:
                     continue
-            elif train_method == "xattn" or train_method == "xattn-strict":  # Cross Attention のみ学習
+            elif train_method == "xattn" or train_method == "xattn-strict":  # Strictly Cross Attention learning
                 if "attn2" not in name:
                     continue
-            elif train_method == "full":  # 全部学習
+            elif train_method == "full":  # All modules learning
                 pass
             else:
                 raise NotImplementedError(
@@ -231,11 +230,6 @@ class LoRANetwork(nn.Module):
                 v = state_dict[key]
                 v = v.detach().clone().to("cpu").to(dtype)
                 state_dict[key] = v
-
-        #         for key in list(state_dict.keys()):
-        #             if not key.startswith("lora"):
-        #                 # lora以外除外
-        #                 del state_dict[key]
 
         if os.path.splitext(file)[1] == ".safetensors":
             save_file(state_dict, file, metadata)
